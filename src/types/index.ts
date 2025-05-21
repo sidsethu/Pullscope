@@ -9,6 +9,7 @@ export interface TeamMetrics {
   avgCycleTime: number;
   reviewedPRs: number;
   openPRs: number;
+  commits: number;
 }
 
 export type TimeFilter = '1d' | '7d' | '30d';
@@ -18,4 +19,5 @@ export interface GitHubMetrics {
   avgCycleTime: number;
   reviewedPRs: number;
   openPRs: number;
+  commits: number;
 } 

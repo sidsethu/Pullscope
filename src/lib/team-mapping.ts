@@ -37,6 +37,7 @@ export function groupMetricsByTeam(
     avgCycleTime: 0,
     reviewedPRs: 0,
     openPRs: 0,
+    commits: 0,
   };
 
   // Initialize other team metrics
@@ -49,6 +50,7 @@ export function groupMetricsByTeam(
           avgCycleTime: 0,
           reviewedPRs: 0,
           openPRs: 0,
+          commits: 0,
         };
       }
     }
@@ -67,6 +69,7 @@ export function groupMetricsByTeam(
     targetTeam.mergedPRs += metrics.mergedPRs;
     targetTeam.reviewedPRs += metrics.reviewedPRs;
     targetTeam.openPRs += metrics.openPRs;
+    targetTeam.commits += metrics.commits;
 
     // Update average cycle time
     if (metrics.avgCycleTime > 0) {

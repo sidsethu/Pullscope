@@ -1,20 +1,16 @@
 import { NextResponse } from 'next/server';
 import { fetchAllMetrics } from '@/lib/github';
 import { loadTeamMappings, groupMetricsByTeam } from '@/lib/team-mapping';
-import { TimeFilter } from '@/types';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const url = new URL(request.url);
-    const timeFilter = url.searchParams.get('timeFilter') as TimeFilter || '7d';
-
     const [teamMembers, userMetrics] = await Promise.all([
       loadTeamMappings(),
-      fetchAllMetrics(timeFilter)
+      fetchAllMetrics('30d') // Always fetch 30 days of data
     ]);
 
     const teamMetrics = groupMetricsByTeam(userMetrics, teamMembers);
-    return NextResponse.json(teamMetrics);
+    return NextResponse.json({ teamMetrics, userMetrics });
   } catch (error) {
     console.error('Error fetching team metrics:', error);
     return NextResponse.json(

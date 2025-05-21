@@ -21,6 +21,7 @@ interface PullRequest {
   closedAt: string | null;
   state: string;
   merged: boolean;
+  commits: number;
 }
 
 interface GraphQLResponse {
@@ -35,6 +36,9 @@ interface GraphQLResponse {
       closedAt: string | null;
       state: string;
       merged: boolean;
+      commits: {
+        totalCount: number;
+      };
     }>;
     pageInfo: {
       hasNextPage: boolean;
@@ -95,6 +99,9 @@ async function fetchAllPRs(): Promise<PullRequest[]> {
               closedAt
               state
               merged
+              commits {
+                totalCount
+              }
             }
           }
           pageInfo {
@@ -116,7 +123,8 @@ async function fetchAllPRs(): Promise<PullRequest[]> {
       mergedAt: pr.mergedAt,
       closedAt: pr.closedAt,
       state: pr.state,
-      merged: pr.merged
+      merged: pr.merged,
+      commits: pr.commits.totalCount
     })));
 
     hasNextPage = searchResults.pageInfo.hasNextPage;
@@ -180,11 +188,15 @@ export function calculateUserMetrics(
     return ageDays > OPEN_PR_AGE_THRESHOLD_DAYS;
   }).length;
 
+  // Calculate total commits from merged PRs
+  const totalCommits = authoredPRs.reduce((sum, pr) => sum + pr.commits, 0);
+
   return {
     mergedPRs: authoredPRs.length,
     avgCycleTime,
     reviewedPRs,
     openPRs,
+    commits: totalCommits,
   };
 }
 

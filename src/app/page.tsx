@@ -26,7 +26,7 @@ async function loadTeamMappingList() {
 export default function Home() {
   const [timeFilter, setTimeFilter] = useState<TimeFilterType>('7d');
   const [prOpenDaysThreshold, setPrOpenDaysThreshold] = useState(10);
-  const { metrics, isLoading, isError } = useTeamMetrics(timeFilter, prOpenDaysThreshold);
+  const { teamMetrics, userMetrics, isLoading, isError } = useTeamMetrics(timeFilter, prOpenDaysThreshold);
   const [groupByName, setGroupByName] = useState(false);
   const [mappingList, setMappingList] = useState<{ name: string; githubUsername: string }[]>([]);
 
@@ -37,17 +37,32 @@ export default function Home() {
   }, [groupByName]);
 
   const metricsToShow = useMemo(() => {
-    if (!groupByName) return metrics;
-    // Build user-level metrics using mappingList
+    if (!groupByName) return teamMetrics;
+    
+    // Build user-level metrics using mappingList and userMetrics
     return mappingList
       .map((entry) => {
-        const m = metrics.find((x) => x.teamName === entry.githubUsername);
-        return m
-          ? { ...m, teamName: entry.name, openPRs: m.openPRs ?? 0 }
-          : { teamName: entry.name, mergedPRs: 0, avgCycleTime: 0, reviewedPRs: 0, openPRs: 0 };
+        const metrics = userMetrics[entry.githubUsername];
+        return metrics
+          ? { 
+              teamName: entry.name,
+              mergedPRs: metrics.mergedPRs,
+              avgCycleTime: metrics.avgCycleTime,
+              reviewedPRs: metrics.reviewedPRs,
+              openPRs: metrics.openPRs,
+              commits: metrics.commits
+            }
+          : { 
+              teamName: entry.name,
+              mergedPRs: 0,
+              avgCycleTime: 0,
+              reviewedPRs: 0,
+              openPRs: 0,
+              commits: 0
+            };
       })
       .filter((m) => m.teamName && m.teamName !== 'Other');
-  }, [metrics, groupByName, mappingList]);
+  }, [teamMetrics, userMetrics, groupByName, mappingList]);
 
   return (
     <Layout>

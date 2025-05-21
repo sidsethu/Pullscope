@@ -17,7 +17,7 @@ import { TeamMetrics } from '@/types';
 import { useState } from 'react';
 import { ChevronUpIcon, ChevronDownIcon } from '@chakra-ui/icons';
 
-type SortField = 'teamName' | 'mergedPRs' | 'avgCycleTime' | 'reviewedPRs' | 'openPRs';
+type SortField = 'teamName' | 'mergedPRs' | 'avgCycleTime' | 'reviewedPRs' | 'openPRs' | 'commits';
 type SortOrder = 'asc' | 'desc';
 
 interface TeamMetricsTableProps {
@@ -92,8 +92,9 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
         (acc.mergedPRs + curr.mergedPRs || 1),
       reviewedPRs: acc.reviewedPRs + curr.reviewedPRs,
       openPRs: acc.openPRs + curr.openPRs,
+      commits: acc.commits + curr.commits,
     }),
-    { teamName: 'Total', mergedPRs: 0, avgCycleTime: 0, reviewedPRs: 0, openPRs: 0 }
+    { teamName: 'Total', mergedPRs: 0, avgCycleTime: 0, reviewedPRs: 0, openPRs: 0, commits: 0 }
   );
 
   if (isLoading) {
@@ -103,10 +104,11 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
           <Thead>
             <Tr>
               <Th>Team</Th>
-              <Th isNumeric>PRs Merged</Th>
+              <Th isNumeric>PRs Authored</Th>
               <Th isNumeric>Avg Cycle Time (hrs)</Th>
               <Th isNumeric>PRs Reviewed</Th>
               <Th isNumeric>Open PRs</Th>
+              <Th isNumeric>Commits</Th>
             </Tr>
           </Thead>
           <Tbody>
@@ -147,7 +149,7 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
             />
             <SortableHeader
               field="mergedPRs"
-              label="PRs Merged"
+              label="PRs Authored"
               currentSort={sortField}
               currentOrder={sortOrder}
               isNumeric
@@ -177,6 +179,14 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
               isNumeric
               onSort={handleSort}
             />
+            <SortableHeader
+              field="commits"
+              label="Commits"
+              currentSort={sortField}
+              currentOrder={sortOrder}
+              isNumeric
+              onSort={handleSort}
+            />
           </Tr>
         </Thead>
         <Tbody>
@@ -187,6 +197,7 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
               <Td isNumeric>{metric.avgCycleTime.toFixed(1)}</Td>
               <Td isNumeric>{metric.reviewedPRs}</Td>
               <Td isNumeric>{metric.openPRs}</Td>
+              <Td isNumeric>{metric.commits}</Td>
             </Tr>
           ))}
         </Tbody>
@@ -197,6 +208,7 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
             <Td isNumeric>{totals.avgCycleTime.toFixed(1)}</Td>
             <Td isNumeric>{totals.reviewedPRs}</Td>
             <Td isNumeric>{totals.openPRs}</Td>
+            <Td isNumeric>{totals.commits}</Td>
           </Tr>
         </Tfoot>
       </Table>

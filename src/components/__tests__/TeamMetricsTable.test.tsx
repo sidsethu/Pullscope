@@ -33,7 +33,7 @@ describe('TeamMetricsTable', () => {
     
     // Check headers
     expect(screen.getByText('Team')).toBeInTheDocument();
-    expect(screen.getByText('PRs Merged')).toBeInTheDocument();
+    expect(screen.getByText('PRs Authored')).toBeInTheDocument();
     expect(screen.getByText('Avg Cycle Time (hrs)')).toBeInTheDocument();
     expect(screen.getByText('PRs Reviewed')).toBeInTheDocument();
 
