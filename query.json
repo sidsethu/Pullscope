@@ -1,0 +1,7 @@
+{
+  "query": "query($org: String!, $cursor: String) { organization(login: $org) { membersWithRole(first: 100, after: $cursor) { nodes { login name email avatarUrl bio company location websiteUrl twitterUsername createdAt updatedAt } pageInfo { hasNextPage endCursor } } } }",
+  "variables": {
+    "org": "nammayatri",
+    "cursor": null
+  }
+} 

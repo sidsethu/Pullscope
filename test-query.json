@@ -1,0 +1,3 @@
+{
+  "query": "query { search(query: \"org:nammayatri is:pr updated:>2024-02-24\" type: ISSUE first: 100) { nodes { ... on PullRequest { author { login } reviews(first: 100) { nodes { author { login } } } createdAt mergedAt closedAt state merged } } pageInfo { hasNextPage endCursor } } }"
+} 
