@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import fetch from 'node-fetch';
-import fs from 'fs';
-import path from 'path';
 
 const APP_ID = process.env.GITHUB_APP_ID || '1302931';
 const INSTALLATION_ID = process.env.GITHUB_INSTALLATION_ID || '67654311';
-const PRIVATE_KEY_PATH = process.env.GITHUB_PRIVATE_KEY_PATH || path.join(process.cwd(), 'src/key/key.pem');
 
 export async function GET() {
   try {
-    // 1. Read private key
-    const privateKey = fs.readFileSync(PRIVATE_KEY_PATH, 'utf8');
+    // Debugging: Print env variable status
+    console.log('PRIVATE_KEY:', process.env.GITHUB_PRIVATE_KEY);
+    console.log('APP_ID:', process.env.GITHUB_APP_ID);
+    console.log('INSTALLATION_ID:', process.env.GITHUB_INSTALLATION_ID);
+
+    // 1. Read private key from environment variable
+    const privateKey = process.env.GITHUB_PRIVATE_KEY;
+    if (!privateKey) {
+      return NextResponse.json({ error: 'GITHUB_PRIVATE_KEY env var not set' }, { status: 500 });
+    }
 
     // 2. Create JWT
     const now = Math.floor(Date.now() / 1000);

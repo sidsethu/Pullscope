@@ -2,7 +2,11 @@ import fetch from 'node-fetch';
 
 // Helper to get a fresh installation token from your API route
 async function getGithubAppToken() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/github-token`);
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  if (!baseUrl) {
+    throw new Error('NEXT_PUBLIC_BASE_URL environment variable must be set in production');
+  }
+  const res = await fetch(`${baseUrl}/api/github-token`);
   if (!res.ok) throw new Error('Failed to get GitHub App token');
   const { token } = await res.json();
   return token;
