@@ -60,11 +60,29 @@ export async function getNammayatriRepos() {
   let hasNextPage = true;
 
   while (hasNextPage) {
-    const data = await githubAppGraphql(query, { org: 'nammayatri', cursor });
+    type OrgReposResponse = {
+      organization: {
+        repositories: {
+          nodes: Array<{
+            name: string;
+            url: string;
+            description: string;
+            isPrivate: boolean;
+            createdAt: string;
+            updatedAt: string;
+          }>;
+          pageInfo: {
+            endCursor: string | null;
+            hasNextPage: boolean;
+          };
+        };
+      };
+    };
+    const data: OrgReposResponse = await githubAppGraphql<OrgReposResponse>(query, { org: 'nammayatri', cursor });
     const repoNodes = data.organization.repositories.nodes;
     repos = repos.concat(repoNodes);
 
-    const pageInfo = data.organization.repositories.pageInfo;
+    const pageInfo: OrgReposResponse["organization"]["repositories"]["pageInfo"] = data.organization.repositories.pageInfo;
     cursor = pageInfo.endCursor;
     hasNextPage = pageInfo.hasNextPage;
   }

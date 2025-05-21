@@ -193,11 +193,11 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
           {sortedMetrics.map((metric) => (
             <Tr key={metric.teamName}>
               <Td>{metric.teamName}</Td>
-              <Td isNumeric>{metric.mergedPRs}</Td>
-              <Td isNumeric>{metric.avgCycleTime.toFixed(1)}</Td>
-              <Td isNumeric>{metric.reviewedPRs}</Td>
-              <Td isNumeric>{metric.openPRs}</Td>
-              <Td isNumeric>{metric.commits}</Td>
+              <Td isNumeric>{isNaN(Number(metric.mergedPRs)) ? 0 : metric.mergedPRs}</Td>
+              <Td isNumeric>{isNaN(Number(metric.avgCycleTime)) ? 0 : metric.avgCycleTime.toFixed(1)}</Td>
+              <Td isNumeric>{isNaN(Number(metric.reviewedPRs)) ? 0 : metric.reviewedPRs}</Td>
+              <Td isNumeric>{isNaN(Number(metric.openPRs)) ? 0 : metric.openPRs}</Td>
+              <Td isNumeric>{isNaN(Number(metric.commits)) ? 0 : metric.commits}</Td>
             </Tr>
           ))}
         </Tbody>

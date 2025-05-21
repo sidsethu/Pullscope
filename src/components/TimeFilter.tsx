@@ -21,6 +21,7 @@ export default function TimeFilter({ value, onChange }: TimeFilterProps) {
           onClick={() => onChange(filter.value)}
           variant={value === filter.value ? 'solid' : 'outline'}
           colorScheme={value === filter.value ? 'blue' : 'gray'}
+          data-active={value === filter.value ? true : undefined}
         >
           {filter.label}
         </Button>
