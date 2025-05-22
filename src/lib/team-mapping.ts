@@ -30,6 +30,15 @@ export function groupMetricsByTeam(
   const teamMetrics: Record<string, TeamMetrics> = {};
   const mappedUsernames = new Set(teamMembers.map(member => member.githubUsername).filter(Boolean));
 
+  // List of users to exclude from all calculations
+  const EXCLUDED_USERS = new Set([
+    'coderabbitai',
+    'github-actions',
+    'dependabot',
+    'github-advanced-security',
+    'copilot-pull-request-reviewer',
+  ]);
+
   // Initialize team metrics, including 'Other'
   teamMetrics['Other'] = {
     teamName: 'Other',
@@ -56,14 +65,23 @@ export function groupMetricsByTeam(
     }
   });
 
+  // Track users grouped into 'Other'
+  const otherUsers: string[] = [];
+
   // Process all users with metrics
   Object.entries(userMetrics).forEach(([username, metrics]) => {
+    // Exclude bot/system users
+    if (EXCLUDED_USERS.has(username)) return;
     // Find team mapping for this user
     const teamMember = teamMembers.find(member => member.githubUsername === username);
     
     // If user is not in mapping or has no team name, add to 'Other'
     const teamName = teamMember?.teamName || 'Other';
     const targetTeam = teamMetrics[teamName] || teamMetrics['Other'];
+
+    if (teamName === 'Other') {
+      otherUsers.push(username);
+    }
 
     // Update team metrics
     targetTeam.mergedPRs += metrics.mergedPRs;
@@ -79,6 +97,10 @@ export function groupMetricsByTeam(
         (targetTeam.mergedPRs + metrics.mergedPRs);
     }
   });
+
+  if (otherUsers.length > 0) {
+    console.error('[TeamMapping] Users grouped into "Other" team:', otherUsers);
+  }
 
   return Object.values(teamMetrics);
 } 

@@ -3,7 +3,7 @@ import fetch from 'node-fetch';
 // Helper to get a fresh installation token from your API route
 let tokenCache: { token: string; expiresAt: string } | null = null;
 
-async function getGithubAppToken(forceRefresh: boolean = true) {
+async function getGithubAppToken(forceRefresh: boolean = false) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
   console.log('baseUrl is this: ', baseUrl);
   if (!baseUrl) {
