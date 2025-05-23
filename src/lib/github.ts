@@ -77,7 +77,7 @@ async function fetchAllPRs(): Promise<PullRequest[]> {
     const query = `
       query($cursor: String) {
         search(
-          query: "org:nammayatri is:pr updated:>${sinceDate}"
+          query: "org:nammayatri is:pr created:>${sinceDate}"
           type: ISSUE
           first: 100
           after: $cursor

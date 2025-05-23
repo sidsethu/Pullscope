@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { fetchAllMetrics } from '@/lib/github';
 import { loadTeamMappings, groupMetricsByTeam } from '@/lib/team-mapping';
+import { TimeFilter } from '@/types';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const url = new URL(request.url);
+    const timeFilter = (url.searchParams.get('timeFilter') as TimeFilter) || '7d';
+
     const [teamMembers, userMetrics] = await Promise.all([
       loadTeamMappings(),
-      fetchAllMetrics('30d') // Always fetch 30 days of data
+      fetchAllMetrics(timeFilter)
     ]);
 
     const teamMetrics = groupMetricsByTeam(userMetrics, teamMembers);

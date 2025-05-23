@@ -22,7 +22,6 @@ async function getGithubAppToken(forceRefresh: boolean = false) {
   console.error('[TokenGen] Generating new token...');
   console.log(`Calling ${baseUrl}/api/github-token`);
   const res = await fetch(`${baseUrl}/api/github-token`);
-  console.log('res is this: ', res);
   if (!res.ok) {
     const error = await res.text();
     console.error('[TokenGen] Failed to get token:', error);

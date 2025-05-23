@@ -17,7 +17,7 @@ import { TeamMetrics } from '@/types';
 import { useState } from 'react';
 import { ChevronUpIcon, ChevronDownIcon } from '@chakra-ui/icons';
 
-type SortField = 'teamName' | 'mergedPRs' | 'avgCycleTime' | 'reviewedPRs' | 'openPRs' | 'commits';
+type SortField = 'teamName' | 'mergedPRs' | 'avgCycleTime' | 'reviewedPRs' | 'openPRs' | 'commits' | 'prsPerPerson' | 'totalMembers';
 type SortOrder = 'asc' | 'desc';
 
 interface TeamMetricsTableProps {
@@ -84,7 +84,7 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
     return multiplier * (Number(aValue) - Number(bValue));
   });
 
-  const totals = metrics.reduce(
+  const totals = metrics.find(m => m.teamName === 'Total') || metrics.reduce(
     (acc, curr) => ({
       teamName: 'Total',
       mergedPRs: acc.mergedPRs + curr.mergedPRs,
@@ -93,9 +93,14 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
       reviewedPRs: acc.reviewedPRs + curr.reviewedPRs,
       openPRs: acc.openPRs + curr.openPRs,
       commits: acc.commits + curr.commits,
+      prsPerPerson: curr.teamName === 'Total' ? curr.prsPerPerson : 0,
+      totalMembers: acc.totalMembers + (curr.totalMembers || 0),
     }),
-    { teamName: 'Total', mergedPRs: 0, avgCycleTime: 0, reviewedPRs: 0, openPRs: 0, commits: 0 }
+    { teamName: 'Total', mergedPRs: 0, avgCycleTime: 0, reviewedPRs: 0, openPRs: 0, commits: 0, prsPerPerson: 0, totalMembers: 0 }
   );
+
+  // Filter out the Total row from the main table
+  const displayMetrics = sortedMetrics.filter(m => m.teamName !== 'Total');
 
   if (isLoading) {
     return (
@@ -103,12 +108,12 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
         <Table variant="simple">
           <Thead>
             <Tr>
-              <Th>Team</Th>
+              <Th>{groupByName ? 'Name' : 'Team'}</Th>
               <Th isNumeric>PRs Authored</Th>
               <Th isNumeric>Avg Cycle Time (hrs)</Th>
-              <Th isNumeric>PRs Reviewed</Th>
+              {!groupByName && <Th isNumeric>PRs/Person</Th>}
               <Th isNumeric>Open PRs</Th>
-              <Th isNumeric>Commits</Th>
+              <Th isNumeric>Commits (30 Days)</Th>
             </Tr>
           </Thead>
           <Tbody>
@@ -117,6 +122,7 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
                 <Td><Skeleton height="20px" width="120px" /></Td>
                 <Td isNumeric><Skeleton height="20px" width="60px" /></Td>
                 <Td isNumeric><Skeleton height="20px" width="80px" /></Td>
+                {!groupByName && <Td isNumeric><Skeleton height="20px" width="60px" /></Td>}
                 <Td isNumeric><Skeleton height="20px" width="60px" /></Td>
                 <Td isNumeric><Skeleton height="20px" width="60px" /></Td>
               </Tr>
@@ -136,8 +142,8 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
   }
 
   return (
-    <TableContainer>
-      <Table variant="simple">
+    <TableContainer w="full" minWidth="1200px" overflowX="auto">
+      <Table variant="simple" w="full" minWidth="1200px">
         <Thead>
           <Tr>
             <SortableHeader
@@ -163,14 +169,26 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
               isNumeric
               onSort={handleSort}
             />
-            <SortableHeader
-              field="reviewedPRs"
-              label="PRs Reviewed"
-              currentSort={sortField}
-              currentOrder={sortOrder}
-              isNumeric
-              onSort={handleSort}
-            />
+            {!groupByName && (
+              <SortableHeader
+                field="prsPerPerson"
+                label="PRs/Person"
+                currentSort={sortField}
+                currentOrder={sortOrder}
+                isNumeric
+                onSort={handleSort}
+              />
+            )}
+            {!groupByName && (
+              <SortableHeader
+                field="totalMembers"
+                label="Total Members"
+                currentSort={sortField}
+                currentOrder={sortOrder}
+                isNumeric
+                onSort={handleSort}
+              />
+            )}
             <SortableHeader
               field="openPRs"
               label="Open PRs"
@@ -181,7 +199,7 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
             />
             <SortableHeader
               field="commits"
-              label="Commits"
+              label="Commits (30 Days)"
               currentSort={sortField}
               currentOrder={sortOrder}
               isNumeric
@@ -190,12 +208,17 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
           </Tr>
         </Thead>
         <Tbody>
-          {sortedMetrics.map((metric) => (
+          {displayMetrics.map((metric) => (
             <Tr key={metric.teamName}>
               <Td>{metric.teamName}</Td>
               <Td isNumeric>{isNaN(Number(metric.mergedPRs)) ? 0 : metric.mergedPRs}</Td>
               <Td isNumeric>{isNaN(Number(metric.avgCycleTime)) ? 0 : metric.avgCycleTime.toFixed(1)}</Td>
-              <Td isNumeric>{isNaN(Number(metric.reviewedPRs)) ? 0 : metric.reviewedPRs}</Td>
+              {!groupByName && (
+                <Td isNumeric>{isNaN(Number(metric.prsPerPerson)) ? 0 : metric.prsPerPerson.toFixed(1)}</Td>
+              )}
+              {!groupByName && (
+                <Td isNumeric>{metric.totalMembers}</Td>
+              )}
               <Td isNumeric>{isNaN(Number(metric.openPRs)) ? 0 : metric.openPRs}</Td>
               <Td isNumeric>{isNaN(Number(metric.commits)) ? 0 : metric.commits}</Td>
             </Tr>
@@ -206,7 +229,8 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
             <Td>{totals.teamName}</Td>
             <Td isNumeric>{totals.mergedPRs}</Td>
             <Td isNumeric>{totals.avgCycleTime.toFixed(1)}</Td>
-            <Td isNumeric>{totals.reviewedPRs}</Td>
+            {!groupByName && <Td isNumeric>{totals.prsPerPerson.toFixed(1)}</Td>}
+            {!groupByName && <Td isNumeric>{totals.totalMembers}</Td>}
             <Td isNumeric>{totals.openPRs}</Td>
             <Td isNumeric>{totals.commits}</Td>
           </Tr>

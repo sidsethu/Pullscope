@@ -30,6 +30,16 @@ export function groupMetricsByTeam(
   const teamMetrics: Record<string, TeamMetrics> = {};
   const mappedUsernames = new Set(teamMembers.map(member => member.githubUsername).filter(Boolean));
 
+  // Track team sizes based only on CSV
+  const teamSizes: Record<string, number> = {};
+  teamMembers.forEach(({ teamName }) => {
+    if (teamName && teamName !== 'Other') {
+      teamSizes[teamName] = (teamSizes[teamName] || 0) + 1;
+    }
+  });
+  // Total team size is sum of all team sizes (excluding 'Other')
+  const totalTeamSize = Object.entries(teamSizes).reduce((acc, [team, size]) => acc + size, 0);
+
   // List of users to exclude from all calculations
   const EXCLUDED_USERS = new Set([
     'coderabbitai',
@@ -47,6 +57,8 @@ export function groupMetricsByTeam(
     reviewedPRs: 0,
     openPRs: 0,
     commits: 0,
+    prsPerPerson: 0,
+    totalMembers: 0,
   };
 
   // Initialize other team metrics
@@ -60,6 +72,8 @@ export function groupMetricsByTeam(
           reviewedPRs: 0,
           openPRs: 0,
           commits: 0,
+          prsPerPerson: 0,
+          totalMembers: teamSizes[teamName] || 0,
         };
       }
     }
@@ -97,6 +111,32 @@ export function groupMetricsByTeam(
         (targetTeam.mergedPRs + metrics.mergedPRs);
     }
   });
+
+  // Calculate PRs per person for each team (using CSV-based team size)
+  let totalMergedPRs = 0;
+  Object.entries(teamMetrics).forEach(([teamName, metrics]) => {
+    if (teamName !== 'Other') {
+      const teamSize = metrics.totalMembers || 1;
+      metrics.prsPerPerson = metrics.mergedPRs / teamSize;
+      totalMergedPRs += metrics.mergedPRs;
+    }
+  });
+
+  // Set PRs per person for Other team to 0 since we don't track their team size
+  teamMetrics['Other'].prsPerPerson = 0;
+  teamMetrics['Other'].totalMembers = 0;
+
+  // Store the overall PRs per person in a special field, using totalTeamSize from CSV
+  teamMetrics['Total'] = {
+    teamName: 'Total',
+    mergedPRs: totalMergedPRs,
+    avgCycleTime: 0, // Will be calculated in the table component
+    reviewedPRs: 0,
+    openPRs: 0,
+    commits: 0,
+    prsPerPerson: totalMergedPRs / (totalTeamSize || 1),
+    totalMembers: totalTeamSize,
+  };
 
   if (otherUsers.length > 0) {
     console.error('[TeamMapping] Users grouped into "Other" team:', otherUsers);

@@ -25,7 +25,7 @@ async function loadTeamMappingList() {
 
 export default function Home() {
   const [timeFilter, setTimeFilter] = useState<TimeFilterType>('7d');
-  const [prOpenDaysThreshold, setPrOpenDaysThreshold] = useState(10);
+  const [prOpenDaysThreshold, setPrOpenDaysThreshold] = useState(5);
   const { teamMetrics, userMetrics, isLoading, isError } = useTeamMetrics(timeFilter, prOpenDaysThreshold);
   const [groupByName, setGroupByName] = useState(false);
   const [mappingList, setMappingList] = useState<{ name: string; githubUsername: string }[]>([]);
@@ -50,7 +50,9 @@ export default function Home() {
               avgCycleTime: metrics.avgCycleTime,
               reviewedPRs: metrics.reviewedPRs,
               openPRs: metrics.openPRs,
-              commits: metrics.commits
+              commits: metrics.commits,
+              prsPerPerson: 0,
+              totalMembers: 0
             }
           : { 
               teamName: entry.name,
@@ -58,7 +60,9 @@ export default function Home() {
               avgCycleTime: 0,
               reviewedPRs: 0,
               openPRs: 0,
-              commits: 0
+              commits: 0,
+              prsPerPerson: 0,
+              totalMembers: 0
             };
       })
       .filter((m) => m.teamName && m.teamName !== 'Other');

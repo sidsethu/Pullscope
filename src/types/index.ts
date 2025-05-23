@@ -10,6 +10,8 @@ export interface TeamMetrics {
   reviewedPRs: number;
   openPRs: number;
   commits: number;
+  prsPerPerson: number;
+  totalMembers: number;
 }
 
 export type TimeFilter = '1d' | '7d' | '30d';
