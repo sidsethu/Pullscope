@@ -112,7 +112,7 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
               <Th isNumeric>PRs Authored</Th>
               <Th isNumeric>Avg Cycle Time (hrs)</Th>
               {!groupByName && <Th isNumeric>PRs/Person</Th>}
-              <Th isNumeric>Open PRs</Th>
+              <Th isNumeric>Open PRs(&gt;5d)</Th>
               <Th isNumeric>Commits (30 Days)</Th>
             </Tr>
           </Thead>
@@ -191,7 +191,7 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
             )}
             <SortableHeader
               field="openPRs"
-              label="Open PRs"
+              label="Open PRs(&gt;5d)"
               currentSort={sortField}
               currentOrder={sortOrder}
               isNumeric

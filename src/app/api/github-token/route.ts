@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import fetch from 'node-fetch';
@@ -31,6 +33,10 @@ export async function GET() {
       exp: currentTimestamp + (10 * 60), // Expire in 10 minutes
       iss: APP_ID,
     };
+    console.error('[TokenGen] JWT payload:', payload, {
+      now: new Date(currentTimestamp * 1000).toISOString(),
+      exp: new Date(payload.exp * 1000).toISOString(),
+    });
     let jwtToken;
     try {
       jwtToken = jwt.sign(payload, privateKey, { algorithm: 'RS256' });
@@ -64,6 +70,7 @@ export async function GET() {
     
     console.error('[TokenGen] Step 5: Installation token received:', {
       expiresAt: data.expires_at,
+      currentTime: currentTime.toISOString(),
       minutesUntilExpiry,
       tokenPresent: !!data.token
     });
@@ -73,7 +80,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Token expired on creation' }, { status: 500 });
     }
 
-    return NextResponse.json({ token: data.token, expires_at: data.expires_at });
+    // Add cache control headers
+    const response = NextResponse.json({ token: data.token, expires_at: data.expires_at });
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    return response;
   } catch (error) {
     console.error('[TokenGen] Step 6: Unexpected error', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

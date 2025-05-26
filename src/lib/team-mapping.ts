@@ -126,14 +126,26 @@ export function groupMetricsByTeam(
   teamMetrics['Other'].prsPerPerson = 0;
   teamMetrics['Other'].totalMembers = 0;
 
-  // Store the overall PRs per person in a special field, using totalTeamSize from CSV
+  // Sum all metrics for the "Total" row
+  let totalReviewedPRs = 0;
+  let totalOpenPRs = 0;
+  let totalCommits = 0;
+
+  Object.entries(teamMetrics).forEach(([teamName, metrics]) => {
+    if (teamName !== 'Other' && teamName !== 'Total') {
+      totalReviewedPRs += metrics.reviewedPRs;
+      totalOpenPRs += metrics.openPRs;
+      totalCommits += metrics.commits;
+    }
+  });
+
   teamMetrics['Total'] = {
     teamName: 'Total',
     mergedPRs: totalMergedPRs,
     avgCycleTime: 0, // Will be calculated in the table component
-    reviewedPRs: 0,
-    openPRs: 0,
-    commits: 0,
+    reviewedPRs: totalReviewedPRs,
+    openPRs: totalOpenPRs,
+    commits: totalCommits,
     prsPerPerson: totalMergedPRs / (totalTeamSize || 1),
     totalMembers: totalTeamSize,
   };
