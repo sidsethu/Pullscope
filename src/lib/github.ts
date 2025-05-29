@@ -1,5 +1,5 @@
 import { GitHubMetrics, TimeFilter } from '@/types';
-import { githubAppGraphql } from './github-app-graphql';
+import { githubAppGraphql,getGithubAppToken } from './github-app-graphql';
 
 const getDateFromFilter = (filter: TimeFilter): Date => {
   const now = new Date();
@@ -148,6 +148,14 @@ function filterPRsByTimeRange(prs: PullRequest[], timeFilter: TimeFilter): PullR
   });
 }
 
+function filterCommitsByTimeRange(commits: { date: string }[], timeFilter: TimeFilter): { date: string }[] {
+  const cutoffDate = getDateFromFilter(timeFilter);
+  return commits.filter(commit => {
+    const commitDate = new Date(commit.date);
+    return commitDate >= cutoffDate;
+  });
+}
+
 // Configurable threshold for open PRs (in days)
 const OPEN_PR_AGE_THRESHOLD_DAYS = 5;
 
@@ -209,7 +217,6 @@ export async function fetchAllMetrics(timeFilter: TimeFilter): Promise<Record<st
     ...filteredPRs.map(pr => pr.author),
     ...filteredPRs.flatMap(pr => pr.reviewers)
   ]));
-
   const metrics: Record<string, GitHubMetrics> = {};
   
   // Calculate metrics for each user
@@ -218,4 +225,124 @@ export async function fetchAllMetrics(timeFilter: TimeFilter): Promise<Record<st
   }
 
   return metrics;
+}
+
+export async function fetchTotalCommitsForOrgWithAppAuth(
+  org: string,
+  timeFilter: TimeFilter
+): Promise<{
+  commits: Record<string, number>;
+  repos: Record<string, number>;
+}> {
+  let hasNextRepoPage = true;
+  let repoEndCursor = null;
+  const userCommits: Record<string, number> = {};
+  const repoCommits: Record<string, number> = {};
+  const sinceDate = getDateFromFilter(timeFilter).toISOString().split('T')[0];
+
+  const repoListQuery = `
+    query($org: String!, $after: String, $commitAfter: String) {
+      organization(login: $org) {
+        repositories(first: 20, after: $after, isFork: false, ownerAffiliations: OWNER) {
+          nodes {
+            name
+            defaultBranchRef {
+              name
+              target {
+                ... on Commit {
+                  history(since: "${sinceDate}T00:00:00Z", first: 100, after: $commitAfter) {
+                    edges {
+                      node {
+                        author {
+                          user {
+                            login
+                          }
+                        }
+                      }
+                    }
+                    pageInfo {
+                      hasNextPage
+                      endCursor
+                    }
+                  }
+                }
+              }
+            }
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+        }
+      }
+    }
+  `;
+
+  while (hasNextRepoPage) {
+    let hasNextCommitPage = true;
+    let commitEndCursor = null;
+
+    while (hasNextCommitPage) {
+      const variables: { org: string; after: string | null; commitAfter: string | null } = { 
+        org, 
+        after: repoEndCursor,
+        commitAfter: commitEndCursor 
+      };
+      const json = await githubAppGraphql(repoListQuery, variables);
+
+      if (json.errors) {
+        throw new Error('GitHub GraphQL error: ' + JSON.stringify(json.errors));
+      }
+
+      const repos = json.organization.repositories.nodes;
+      for (const repo of repos) {
+        const history = repo.defaultBranchRef?.target?.history;
+        if (history) {
+          const edges = history.edges ?? [];
+          // Count commits per repo
+          repoCommits[repo.name] = (repoCommits[repo.name] || 0) + edges.length;
+          
+          for (const edge of edges) {
+            const login = edge.node.author?.user?.login;
+            if (login) {
+              userCommits[login] = (userCommits[login] || 0) + 1;
+            }
+          }
+          hasNextCommitPage = history.pageInfo.hasNextPage;
+          commitEndCursor = history.pageInfo.endCursor;
+        }
+      }
+
+      if (!hasNextCommitPage) {
+        hasNextRepoPage = json.organization.repositories.pageInfo.hasNextPage;
+        repoEndCursor = json.organization.repositories.pageInfo.endCursor;
+      }
+    }
+  }
+  return {
+    commits: Object.fromEntries(
+      Object.entries(userCommits)
+        .sort(([, a], [, b]) => b - a)
+    ),
+    repos: Object.fromEntries(
+      Object.entries(repoCommits)
+        .sort(([, a], [, b]) => b - a)
+    )
+  }
+}
+
+function getDateFromFilterString(filter: TimeFilter): string {
+  const now = new Date();
+  switch (filter) {
+    case '1d':
+      now.setDate(now.getDate() - 1);
+      break;
+    case '7d':
+      now.setDate(now.getDate() - 7);
+      break;
+    case '30d':
+      now.setDate(now.getDate() - 30);
+      break;
+  }
+  return now.toISOString().split('T')[0];
 } 

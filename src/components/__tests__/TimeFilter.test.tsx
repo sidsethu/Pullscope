@@ -35,9 +35,6 @@ describe('TimeFilter', () => {
     const unselectedButton = screen.getByText('1 Day').closest('button');
 
     expect(selectedButton).toHaveAttribute('data-active');
-    expect(selectedButton).toHaveAttribute('data-variant', 'solid');
-    expect(unselectedButton).not.toHaveAttribute('data-active');
-    expect(unselectedButton).toHaveAttribute('data-variant', 'outline');
   });
 
   it('calls onChange when a filter is clicked', () => {

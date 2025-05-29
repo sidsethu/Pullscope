@@ -44,7 +44,7 @@ async function getGithubAppToken(forceRefresh: boolean = false) {
   console.error('[TokenGen] New token generated, expires in:', minutesUntilExpiry, 'minutes');
   return token;
 }
-
+export { getGithubAppToken };
 // Main function to make a GitHub GraphQL API call as the App
 export async function githubAppGraphql<T = any>(query: string, variables: Record<string, any> = {}) {
   let token = await getGithubAppToken();
