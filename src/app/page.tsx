@@ -7,6 +7,7 @@ import TimeFilter from '@/components/TimeFilter';
 import { TimeFilter as TimeFilterType, TeamMetrics } from '@/types';
 import { useTeamMetrics } from '@/hooks/useTeamMetrics';
 import { VStack, Alert, AlertIcon, AlertTitle, AlertDescription, Box, Button, HStack, Select } from '@chakra-ui/react';
+import CommitsByRepoBarGraph from '@/components/CommitsByRepoBarGraph';
 
 // Helper to load team mapping CSV and return a list of { name, githubUsername }
 async function loadTeamMappingList() {
@@ -29,6 +30,9 @@ export default function Home() {
   const { teamMetrics, userMetrics, isLoading, isError } = useTeamMetrics(timeFilter, prOpenDaysThreshold);
   const [groupByName, setGroupByName] = useState(false);
   const [mappingList, setMappingList] = useState<{ name: string; githubUsername: string }[]>([]);
+  const [view, setView] = useState<'user' | 'repo'>('user');
+  const [repoCommits, setRepoCommits] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (groupByName) {
@@ -68,6 +72,21 @@ export default function Home() {
       .filter((m) => m.teamName && m.teamName !== 'Other');
   }, [teamMetrics, userMetrics, groupByName, mappingList]);
 
+  const handleShowRepoCommits = async () => {
+    setLoading(true);
+    setView('repo');
+    try {
+      const res = await fetch(`/api/total-commits?timeFilter=${timeFilter}`);
+      const data = await res.json();
+      setRepoCommits(data.commits?.repos || {});
+    } catch (e) {
+      setRepoCommits({});
+    }
+    setLoading(false);
+  };
+
+  const handleShowUserView = () => setView('user');
+
   return (
     <Layout>
       <VStack spacing={8} alignItems="stretch">
@@ -76,8 +95,13 @@ export default function Home() {
           <Button size="sm" onClick={() => setGroupByName((v) => !v)}>
             {groupByName ? 'Group by Team' : 'Group by Name'}
           </Button>
+          <Button size="sm" onClick={handleShowRepoCommits} colorScheme={view === 'repo' ? 'blue' : 'gray'}>
+            Watch commits by repo
+          </Button>
         </HStack>
-        {isError ? (
+        {view === 'repo' ? (
+          <CommitsByRepoBarGraph data={repoCommits} loading={loading} />
+        ) : isError ? (
           <Alert status="error" borderRadius="md">
             <AlertIcon />
             <Box>
@@ -88,7 +112,12 @@ export default function Home() {
             </Box>
           </Alert>
         ) : (
-          <TeamMetricsTable metrics={metricsToShow} isLoading={isLoading} groupByName={groupByName} prOpenDaysThreshold={prOpenDaysThreshold} />
+          <TeamMetricsTable
+            metrics={metricsToShow}
+            isLoading={isLoading}
+            groupByName={groupByName}
+            prOpenDaysThreshold={prOpenDaysThreshold}
+          />
         )}
       </VStack>
     </Layout>
