@@ -4,6 +4,7 @@ import { TimeFilter as TimeFilterType } from '@/types';
 interface TimeFilterProps {
   value: TimeFilterType;
   onChange: (value: TimeFilterType) => void;
+  hide30d?: boolean;
 }
 
 const timeFilters: { label: string; value: TimeFilterType }[] = [
@@ -12,20 +13,22 @@ const timeFilters: { label: string; value: TimeFilterType }[] = [
   { label: '30 Days', value: '30d' },
 ];
 
-export default function TimeFilter({ value, onChange }: TimeFilterProps) {
+export default function TimeFilter({ value, onChange, hide30d = false }: TimeFilterProps) {
   return (
     <ButtonGroup size="sm" isAttached variant="outline">
-      {timeFilters.map((filter) => (
-        <Button
-          key={filter.value}
-          onClick={() => onChange(filter.value)}
-          variant={value === filter.value ? 'solid' : 'outline'}
-          colorScheme={value === filter.value ? 'blue' : 'gray'}
-          data-active={value === filter.value ? true : undefined}
-        >
-          {filter.label}
-        </Button>
-      ))}
+      {timeFilters
+        .filter((filter) => !(hide30d && filter.value === '30d'))
+        .map((filter) => (
+          <Button
+            key={filter.value}
+            onClick={() => onChange(filter.value)}
+            variant={value === filter.value ? 'solid' : 'outline'}
+            colorScheme={value === filter.value ? 'blue' : 'gray'}
+            data-active={value === filter.value ? true : undefined}
+          >
+            {filter.label}
+          </Button>
+        ))}
     </ButtonGroup>
   );
 } 

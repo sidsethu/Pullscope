@@ -40,6 +40,13 @@ export default function Home() {
     }
   }, [groupByName]);
 
+  // Remove 30d from time filter when switching to repo view
+  useEffect(() => {
+    if (view === 'repo' && timeFilter === '30d') {
+      setTimeFilter('7d');
+    }
+  }, [view, timeFilter]);
+
   const metricsToShow = useMemo(() => {
     if (!groupByName) return teamMetrics;
     
@@ -75,8 +82,12 @@ export default function Home() {
   const handleShowRepoCommits = async () => {
     setLoading(true);
     setView('repo');
+    // Remove 30d if selected
+    if (timeFilter === '30d') {
+      setTimeFilter('7d');
+    }
     try {
-      const res = await fetch(`/api/total-commits?timeFilter=${timeFilter}`);
+      const res = await fetch(`/api/total-commits?timeFilter=${timeFilter === '30d' ? '7d' : timeFilter}`);
       const data = await res.json();
       setRepoCommits(data.commits?.repos || {});
     } catch (e) {
@@ -90,17 +101,32 @@ export default function Home() {
   return (
     <Layout>
       <VStack spacing={8} alignItems="stretch">
-        <TimeFilter value={timeFilter} onChange={setTimeFilter} />
+        {view === 'user' && (
+          <TimeFilter value={timeFilter} onChange={setTimeFilter} />
+        )}
         <HStack justifyContent="flex-end" spacing={4}>
-          <Button size="sm" onClick={() => setGroupByName((v) => !v)}>
-            {groupByName ? 'Group by Team' : 'Group by Name'}
-          </Button>
-          <Button size="sm" onClick={handleShowRepoCommits} colorScheme={view === 'repo' ? 'blue' : 'gray'}>
-            Watch commits by repo
-          </Button>
+          {view === 'user' && (
+            <Button size="sm" onClick={() => setGroupByName((v) => !v)}>
+              {groupByName ? 'Group by Team' : 'Group by Name'}
+            </Button>
+          )}
+          {view === 'repo' ? (
+            <Button size="sm" onClick={handleShowUserView} colorScheme="gray">
+              See all metrics
+            </Button>
+          ) : (
+            <Button size="sm" onClick={handleShowRepoCommits} colorScheme="gray">
+              Watch commits by repo
+            </Button>
+          )}
         </HStack>
         {view === 'repo' ? (
-          <CommitsByRepoBarGraph data={repoCommits} loading={loading} />
+          <>
+            <Box as="h2" fontWeight="bold" fontSize="lg" mb={2} textAlign="center">
+              Commits by repo for the last 7 days
+            </Box>
+            <CommitsByRepoBarGraph data={repoCommits} loading={loading} />
+          </>
         ) : isError ? (
           <Alert status="error" borderRadius="md">
             <AlertIcon />
