@@ -8,6 +8,7 @@ import { TimeFilter as TimeFilterType, TeamMetrics } from '@/types';
 import { useTeamMetrics } from '@/hooks/useTeamMetrics';
 import { VStack, Alert, AlertIcon, AlertTitle, AlertDescription, Box, Button, HStack, Select } from '@chakra-ui/react';
 import CommitsByRepoBarGraph from '@/components/CommitsByRepoBarGraph';
+import DashboardIntroLoader from '@/components/DashboardIntroLoader';
 
 // Helper to load team mapping CSV and return a list of { name, githubUsername }
 async function loadTeamMappingList() {
@@ -33,6 +34,8 @@ export default function Home() {
   const [view, setView] = useState<'user' | 'repo'>('user');
   const [repoCommits, setRepoCommits] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
+  const [showLoader, setShowLoader] = useState(true);
+  const [loaderDissolve, setLoaderDissolve] = useState(false);
 
   useEffect(() => {
     if (groupByName) {
@@ -98,52 +101,70 @@ export default function Home() {
 
   const handleShowUserView = () => setView('user');
 
+  // Loader dissolve logic
+  useEffect(() => {
+    if (!isLoading && showLoader) {
+      setLoaderDissolve(true);
+      const timeout = setTimeout(() => setShowLoader(false), 700); // match dissolve duration
+      return () => clearTimeout(timeout);
+    }
+    if (isLoading && !showLoader) {
+      setShowLoader(true);
+      setLoaderDissolve(false);
+    }
+  }, [isLoading]);
+
   return (
     <Layout>
       <VStack spacing={8} alignItems="stretch">
-        {view === 'user' && (
-          <TimeFilter value={timeFilter} onChange={setTimeFilter} />
-        )}
-        <HStack justifyContent="flex-end" spacing={4}>
-          {view === 'user' && (
-            <Button size="sm" onClick={() => setGroupByName((v) => !v)}>
-              {groupByName ? 'Group by Team' : 'Group by Name'}
-            </Button>
-          )}
-          {view === 'repo' ? (
-            <Button size="sm" onClick={handleShowUserView} colorScheme="gray">
-              See all metrics
-            </Button>
-          ) : (
-            <Button size="sm" onClick={handleShowRepoCommits} colorScheme="gray">
-              Watch commits by repo
-            </Button>
-          )}
-        </HStack>
-        {view === 'repo' ? (
+        {showLoader && <DashboardIntroLoader dissolve={loaderDissolve} />}
+        {!showLoader && (
           <>
-            <Box as="h2" fontWeight="bold" fontSize="lg" mb={2} textAlign="center">
-              Commits by repo for the last 7 days
-            </Box>
-            <CommitsByRepoBarGraph data={repoCommits} loading={loading} />
+            {view === 'user' && (
+              <TimeFilter value={timeFilter} onChange={setTimeFilter} />
+            )}
+            <HStack justifyContent="flex-end" spacing={4}>
+              {view === 'user' && (
+                <Button size="sm" onClick={() => setGroupByName((v) => !v)}>
+                  {groupByName ? 'Group by Team' : 'Group by Name'}
+                </Button>
+              )}
+              {view === 'repo' ? (
+                <Button size="sm" onClick={handleShowUserView} colorScheme="gray">
+                  See all metrics
+                </Button>
+              ) : (
+                <Button size="sm" onClick={handleShowRepoCommits} colorScheme="gray">
+                  Watch commits by repo
+                </Button>
+              )}
+            </HStack>
+            {view === 'repo' ? (
+              <>
+                <Box as="h2" fontWeight="bold" fontSize="lg" mb={2} textAlign="center">
+                  Commits by repo for the last 7 days
+                </Box>
+                <CommitsByRepoBarGraph data={repoCommits} loading={loading} />
+              </>
+            ) : isError ? (
+              <Alert status="error" borderRadius="md">
+                <AlertIcon />
+                <Box>
+                  <AlertTitle>Error loading metrics</AlertTitle>
+                  <AlertDescription>
+                    Please check your GitHub token and try again.
+                  </AlertDescription>
+                </Box>
+              </Alert>
+            ) : (
+              <TeamMetricsTable
+                metrics={metricsToShow}
+                isLoading={isLoading}
+                groupByName={groupByName}
+                prOpenDaysThreshold={prOpenDaysThreshold}
+              />
+            )}
           </>
-        ) : isError ? (
-          <Alert status="error" borderRadius="md">
-            <AlertIcon />
-            <Box>
-              <AlertTitle>Error loading metrics</AlertTitle>
-              <AlertDescription>
-                Please check your GitHub token and try again.
-              </AlertDescription>
-            </Box>
-          </Alert>
-        ) : (
-          <TeamMetricsTable
-            metrics={metricsToShow}
-            isLoading={isLoading}
-            groupByName={groupByName}
-            prOpenDaysThreshold={prOpenDaysThreshold}
-          />
         )}
       </VStack>
     </Layout>
