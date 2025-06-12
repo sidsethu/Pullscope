@@ -1,4 +1,4 @@
-import { GitHubMetrics, TimeFilter } from '@/types';
+import { GitHubMetrics, TimeFilter, PullRequest as PullRequestType } from '@/types'; // Import PullRequestType
 import { githubAppGraphql,getGithubAppToken } from './github-app-graphql';
 
 const getDateFromFilter = (filter: TimeFilter): Date => {
@@ -13,16 +13,7 @@ const getDateFromFilter = (filter: TimeFilter): Date => {
   }
 };
 
-interface PullRequest {
-  author: string;
-  reviewers: string[];
-  createdAt: string;
-  mergedAt: string | null;
-  closedAt: string | null;
-  state: string;
-  merged: boolean;
-  commits: number;
-}
+// Remove local PullRequest interface, will use PullRequestType from @/types
 
 interface GraphQLResponse {
   search: {
@@ -39,6 +30,10 @@ interface GraphQLResponse {
       commits: {
         totalCount: number;
       };
+      // New fields for PR stats
+      additions: number;
+      deletions: number;
+      changedFiles: number;
     }>;
     pageInfo: {
       hasNextPage: boolean;
@@ -51,24 +46,22 @@ type PRNode = GraphQLResponse['search']['nodes'][0];
 type ReviewNode = PRNode['reviews']['nodes'][0];
 
 // Cache for PR data
-let prCache: {
-  data: PullRequest[];
-  timestamp: number;
-} | null = null;
+let prCache: Record<string, { data: PullRequestType[]; timestamp: number; }> = {}; // Use PullRequestType
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-async function fetchAllPRs(): Promise<PullRequest[]> {
-  // Always fetch last 30 days of data
-  const since = new Date();
-  since.setDate(since.getDate() - 30);
+async function fetchAllPRs(timeFilter: TimeFilter): Promise<PullRequestType[]> { // Use PullRequestType
+  const since = getDateFromFilter(timeFilter);
 
   // Check cache first
-  if (prCache && Date.now() - prCache.timestamp < CACHE_DURATION) {
-    return prCache.data;
+  const cacheKey = since.toISOString(); // Using ISO string of the 'since' date as cache key
+  if (prCache[cacheKey] && Date.now() - prCache[cacheKey].timestamp < CACHE_DURATION) {
+    console.log(`[Cache] Using cached PRs for filter: ${timeFilter} (since: ${cacheKey})`);
+    return prCache[cacheKey].data;
   }
+  console.log(`[Cache] Fetching fresh PRs for filter: ${timeFilter} (since: ${cacheKey})`);
 
-  const prs: PullRequest[] = [];
+  const prs: PullRequestType[] = []; // Use PullRequestType
   let hasNextPage = true;
   let cursor: string | null = null;
 
@@ -102,6 +95,10 @@ async function fetchAllPRs(): Promise<PullRequest[]> {
               commits {
                 totalCount
               }
+              # Request new fields
+              additions
+              deletions
+              changedFiles
             }
           }
           pageInfo {
@@ -124,7 +121,11 @@ async function fetchAllPRs(): Promise<PullRequest[]> {
       closedAt: pr.closedAt,
       state: pr.state,
       merged: pr.merged,
-      commits: pr.commits.totalCount
+      commits: pr.commits.totalCount,
+      // Map new fields
+      additions: pr.additions,
+      deletions: pr.deletions,
+      changedFiles: pr.changedFiles
     })));
 
     hasNextPage = searchResults.pageInfo.hasNextPage;
@@ -132,7 +133,7 @@ async function fetchAllPRs(): Promise<PullRequest[]> {
   }
 
   // Update cache
-  prCache = {
+  prCache[cacheKey] = {
     data: prs,
     timestamp: Date.now()
   };
@@ -140,6 +141,9 @@ async function fetchAllPRs(): Promise<PullRequest[]> {
   return prs;
 }
 
+// filterPRsByTimeRange is likely redundant now as fetchAllPRs fetches data for the specific timeFilter.
+// Keeping it commented out for now, can be removed if confirmed redundant after testing.
+/*
 function filterPRsByTimeRange(prs: PullRequest[], timeFilter: TimeFilter): PullRequest[] {
   const cutoffDate = getDateFromFilter(timeFilter);
   return prs.filter(pr => {
@@ -147,6 +151,7 @@ function filterPRsByTimeRange(prs: PullRequest[], timeFilter: TimeFilter): PullR
     return prDate >= cutoffDate;
   });
 }
+*/
 
 function filterCommitsByTimeRange(commits: { date: string }[], timeFilter: TimeFilter): { date: string }[] {
   const cutoffDate = getDateFromFilter(timeFilter);
@@ -161,9 +166,9 @@ const OPEN_PR_AGE_THRESHOLD_DAYS = 5;
 
 export function calculateUserMetrics(
   username: string,
-  prs: PullRequest[]
+  prs: PullRequestType[] // Use PullRequestType
 ): GitHubMetrics {
-  // Filter PRs authored by the user
+  // Filter PRs authored by the user that are merged
   const authoredPRs = prs.filter(pr => pr.author === username && pr.merged);
   
   // Calculate average cycle time
@@ -199,29 +204,43 @@ export function calculateUserMetrics(
   // Calculate total commits from merged PRs
   const totalCommits = authoredPRs.reduce((sum, pr) => sum + pr.commits, 0);
 
+  // Calculate total additions, deletions, and changed files from merged PRs
+  const totalAdditions = authoredPRs.reduce((sum, pr) => sum + pr.additions, 0);
+  const totalDeletions = authoredPRs.reduce((sum, pr) => sum + pr.deletions, 0);
+  const totalChangedFiles = authoredPRs.reduce((sum, pr) => sum + pr.changedFiles, 0);
+
+  const mergedPRsCount = authoredPRs.length;
+
   return {
-    mergedPRs: authoredPRs.length,
+    mergedPRs: mergedPRsCount,
     avgCycleTime,
     reviewedPRs,
     openPRs,
     commits: totalCommits,
+    totalAdditions,
+    totalDeletions,
+    totalChangedFiles,
+    avgAdditionsPerPR: mergedPRsCount > 0 ? totalAdditions / mergedPRsCount : 0,
+    avgDeletionsPerPR: mergedPRsCount > 0 ? totalDeletions / mergedPRsCount : 0,
+    avgFilesChangedPerPR: mergedPRsCount > 0 ? totalChangedFiles / mergedPRsCount : 0,
   };
 }
 
 export async function fetchAllMetrics(timeFilter: TimeFilter): Promise<Record<string, GitHubMetrics>> {
-  const allPRs = await fetchAllPRs();
-  const filteredPRs = filterPRsByTimeRange(allPRs, timeFilter);
+  // Fetch PRs specifically for the given timeFilter
+  const prsForFilter = await fetchAllPRs(timeFilter); // prsForFilter is now PullRequestType[]
   
   // Get unique usernames from PRs
+  // Note: filterPRsByTimeRange was removed as fetchAllPRs now handles the date range.
   const usernames = Array.from(new Set([
-    ...filteredPRs.map(pr => pr.author),
-    ...filteredPRs.flatMap(pr => pr.reviewers)
+    ...prsForFilter.map(pr => pr.author),
+    ...prsForFilter.flatMap(pr => pr.reviewers)
   ]));
   const metrics: Record<string, GitHubMetrics> = {};
   
-  // Calculate metrics for each user
+  // Calculate metrics for each user using the already filtered PRs
   for (const username of usernames) {
-    metrics[username] = calculateUserMetrics(username, filteredPRs);
+    metrics[username] = calculateUserMetrics(username, prsForFilter);
   }
 
   return metrics;
@@ -345,4 +364,4 @@ function getDateFromFilterString(filter: TimeFilter): string {
       break;
   }
   return now.toISOString().split('T')[0];
-} 
+}

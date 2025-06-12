@@ -42,7 +42,7 @@ export default function DashboardIntroLoader({ dissolve }: DashboardIntroLoaderP
         if (start === null) start = ts;
         const elapsed = ts - start;
         // Move rickshaw from 0 to 0.96 over 45.5s (very slow)
-        const x = Math.min(0.98, (elapsed / 34500) * 0.98);
+        const x = Math.min(0.98, (elapsed / 14500) * 0.98);
         setRickshawX(x);
         rickshawXRef.current = x;
         if (x < 0.98 && phase === 'rickshaw') {
@@ -159,7 +159,7 @@ export default function DashboardIntroLoader({ dissolve }: DashboardIntroLoaderP
                   style={{
                     height: '40px',
                     background: '#222',
-                    borderRadius: '20px',
+                    borderRadius: '2px',
                     position: 'absolute',
                     left: 0,
                     top: '8px',

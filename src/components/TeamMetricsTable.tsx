@@ -17,7 +17,19 @@ import { TeamMetrics } from '@/types';
 import { useState } from 'react';
 import { ChevronUpIcon, ChevronDownIcon } from '@chakra-ui/icons';
 
-type SortField = 'teamName' | 'mergedPRs' | 'avgCycleTime' | 'reviewedPRs' | 'openPRs' | 'commits' | 'prsPerPerson' | 'totalMembers';
+type SortField =
+  | 'teamName'
+  | 'mergedPRs'
+  | 'avgCycleTime'
+  | 'reviewedPRs'
+  | 'openPRs'
+  | 'commits'
+  | 'prsPerPerson'
+  | 'totalMembers'
+  // New sortable fields
+  | 'avgAdditionsPerPR'
+  | 'avgDeletionsPerPR'
+  | 'avgFilesChangedPerPR';
 type SortOrder = 'asc' | 'desc';
 
 interface TeamMetricsTableProps {
@@ -93,11 +105,22 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
       reviewedPRs: acc.reviewedPRs + curr.reviewedPRs,
       openPRs: acc.openPRs + curr.openPRs,
       commits: acc.commits + curr.commits,
-      prsPerPerson: curr.teamName === 'Total' ? curr.prsPerPerson : 0,
+      prsPerPerson: 0, // Fallback, actual total prsPerPerson is from backend Total row
       totalMembers: acc.totalMembers + (curr.totalMembers || 0),
+      // Add new fields to accumulator for fallback. Actual averages are from backend Total row.
+      avgAdditionsPerPR: 0,
+      avgDeletionsPerPR: 0,
+      avgFilesChangedPerPR: 0,
     }),
-    { teamName: 'Total', mergedPRs: 0, avgCycleTime: 0, reviewedPRs: 0, openPRs: 0, commits: 0, prsPerPerson: 0, totalMembers: 0 }
+    { 
+      teamName: 'Total', mergedPRs: 0, avgCycleTime: 0, reviewedPRs: 0, openPRs: 0, commits: 0, prsPerPerson: 0, totalMembers: 0,
+      // Initialize new fields for the fallback accumulator
+      avgAdditionsPerPR: 0, avgDeletionsPerPR: 0, avgFilesChangedPerPR: 0
+    }
   );
+  // Note: The 'totals' object primarily relies on `metrics.find(m => m.teamName === 'Total')`.
+  // The reduce logic above is a fallback and its averaging for new metrics is simplified,
+  // as the backend's 'Total' row should be the source of truth for these averages.
 
   // Filter out the Total row from the main table
   const displayMetrics = sortedMetrics.filter(m => m.teamName !== 'Total');
@@ -110,21 +133,30 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
             <Tr>
               <Th>{groupByName ? 'Name' : 'Team'}</Th>
               <Th isNumeric>PRs Authored</Th>
+              {/* New Headers for loading state - reordered */}
+              <Th isNumeric>Adds/PR</Th>
+              <Th isNumeric>Dels/PR</Th>
+              <Th isNumeric>Files/PR</Th>
               <Th isNumeric>Avg Cycle Time (hrs)</Th>
               {!groupByName && <Th isNumeric>PRs/Person</Th>}
-              <Th isNumeric>Open PRs(&gt;5d)</Th>
-              <Th isNumeric>Commits (30 Days)</Th>
+              {!groupByName && <Th isNumeric>Total Members</Th>}
+              <Th isNumeric>Open PRs(5d+)</Th> 
+              <Th isNumeric>Commits</Th>
             </Tr>
           </Thead>
           <Tbody>
             {[...Array(3)].map((_, i) => (
               <Tr key={i}>
-                <Td><Skeleton height="20px" width="120px" /></Td>
-                <Td isNumeric><Skeleton height="20px" width="60px" /></Td>
-                <Td isNumeric><Skeleton height="20px" width="80px" /></Td>
-                {!groupByName && <Td isNumeric><Skeleton height="20px" width="60px" /></Td>}
-                <Td isNumeric><Skeleton height="20px" width="60px" /></Td>
-                <Td isNumeric><Skeleton height="20px" width="60px" /></Td>
+                <Td><Skeleton height="20px" width="120px" /></Td> {/* Team/Name */}
+                <Td isNumeric><Skeleton height="20px" width="60px" /></Td> {/* PRs Authored */}
+                <Td isNumeric><Skeleton height="20px" width="60px" /></Td> {/* Adds/PR */}
+                <Td isNumeric><Skeleton height="20px" width="60px" /></Td> {/* Dels/PR */}
+                <Td isNumeric><Skeleton height="20px" width="60px" /></Td> {/* Files/PR */}
+                <Td isNumeric><Skeleton height="20px" width="80px" /></Td> {/* Avg Cycle Time */}
+                {!groupByName && <Td isNumeric><Skeleton height="20px" width="60px" /></Td>} {/* PRs/Person */}
+                {!groupByName && <Td isNumeric><Skeleton height="20px" width="60px" /></Td>} {/* Total Members */}
+                <Td isNumeric><Skeleton height="20px" width="60px" /></Td> {/* Open PRs */}
+                <Td isNumeric><Skeleton height="20px" width="60px" /></Td> {/* Commits */}
               </Tr>
             ))}
           </Tbody>
@@ -161,6 +193,31 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
               isNumeric
               onSort={handleSort}
             />
+            {/* New Sortable Headers */}
+            <SortableHeader
+              field="avgAdditionsPerPR"
+              label="Adds/PR"
+              currentSort={sortField}
+              currentOrder={sortOrder}
+              isNumeric
+              onSort={handleSort}
+            />
+            <SortableHeader
+              field="avgDeletionsPerPR"
+              label="Dels/PR"
+              currentSort={sortField}
+              currentOrder={sortOrder}
+              isNumeric
+              onSort={handleSort}
+            />
+            <SortableHeader
+              field="avgFilesChangedPerPR"
+              label="Files/PR"
+              currentSort={sortField}
+              currentOrder={sortOrder}
+              isNumeric
+              onSort={handleSort}
+            />
             <SortableHeader
               field="avgCycleTime"
               label="Avg Cycle Time (hrs)"
@@ -191,7 +248,7 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
             )}
             <SortableHeader
               field="openPRs"
-              label="Open PRs(&gt;5d)"
+              label="Open PRs(>5d)" 
               currentSort={sortField}
               currentOrder={sortOrder}
               isNumeric
@@ -199,7 +256,7 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
             />
             <SortableHeader
               field="commits"
-              label="Commits (30 Days)"
+              label="Commits"
               currentSort={sortField}
               currentOrder={sortOrder}
               isNumeric
@@ -212,6 +269,10 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
             <Tr key={metric.teamName}>
               <Td>{metric.teamName}</Td>
               <Td isNumeric>{isNaN(Number(metric.mergedPRs)) ? 0 : metric.mergedPRs}</Td>
+              {/* New Data Cells - reordered */}
+              <Td isNumeric>{isNaN(Number(metric.avgAdditionsPerPR)) ? 0 : Number(metric.avgAdditionsPerPR).toFixed(1)}</Td>
+              <Td isNumeric>{isNaN(Number(metric.avgDeletionsPerPR)) ? 0 : Number(metric.avgDeletionsPerPR).toFixed(1)}</Td>
+              <Td isNumeric>{isNaN(Number(metric.avgFilesChangedPerPR)) ? 0 : Number(metric.avgFilesChangedPerPR).toFixed(1)}</Td>
               <Td isNumeric>{isNaN(Number(metric.avgCycleTime)) ? 0 : metric.avgCycleTime.toFixed(1)}</Td>
               {!groupByName && (
                 <Td isNumeric>{isNaN(Number(metric.prsPerPerson)) ? 0 : metric.prsPerPerson.toFixed(1)}</Td>
@@ -228,6 +289,10 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
           <Tr fontWeight="bold" bg="gray.50">
             <Td>{totals.teamName}</Td>
             <Td isNumeric>{totals.mergedPRs}</Td>
+            {/* Totals for New Columns - reordered */}
+            <Td isNumeric>{Number(totals.avgAdditionsPerPR).toFixed(1)}</Td>
+            <Td isNumeric>{Number(totals.avgDeletionsPerPR).toFixed(1)}</Td>
+            <Td isNumeric>{Number(totals.avgFilesChangedPerPR).toFixed(1)}</Td>
             <Td isNumeric>{totals.avgCycleTime.toFixed(1)}</Td>
             {!groupByName && <Td isNumeric>{totals.prsPerPerson.toFixed(1)}</Td>}
             {!groupByName && <Td isNumeric>{totals.totalMembers}</Td>}
@@ -238,4 +303,4 @@ export default function TeamMetricsTable({ metrics, isLoading, groupByName = fal
       </Table>
     </TableContainer>
   );
-} 
+}
