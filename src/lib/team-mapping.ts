@@ -47,7 +47,18 @@ export function groupMetricsByTeam(
     'dependabot',
     'github-advanced-security',
     'copilot-pull-request-reviewer',
+    'cursor-com',
+    'lukateras'
   ]);
+
+  // Temporary accumulators for new metrics within teamMetrics objects
+  // These will be added to each team's object during initialization
+  const newMetricsTemplate = {
+    totalTeamAdditions: 0,
+    totalTeamDeletions: 0,
+    totalTeamChangedFiles: 0,
+    totalTeamCycleTimeProductSum: 0, // For weighted avg cycle time
+  };
 
   // Initialize team metrics, including 'Other'
   teamMetrics['Other'] = {
@@ -58,20 +69,13 @@ export function groupMetricsByTeam(
     openPRs: 0,
     commits: 0,
     prsPerPerson: 0,
-    totalMembers: 0,
+    totalMembers: 0, // This will be updated after processing users
     // Initialize new average metrics
     avgAdditionsPerPR: 0,
     avgDeletionsPerPR: 0,
     avgFilesChangedPerPR: 0,
-  };
-
-  // Temporary accumulators for new metrics within teamMetrics objects
-  // These will be added to each team's object during initialization
-  const newMetricsTemplate = {
-    totalTeamAdditions: 0,
-    totalTeamDeletions: 0,
-    totalTeamChangedFiles: 0,
-    totalTeamCycleTimeProductSum: 0, // For weighted avg cycle time
+    // Add temporary accumulators
+    ...JSON.parse(JSON.stringify(newMetricsTemplate)), // Deep copy
   };
 
   // Initialize other team metrics
@@ -97,10 +101,11 @@ export function groupMetricsByTeam(
       }
     }
   });
-  // Add accumulators to 'Other' team as well
-  (teamMetrics['Other'] as any).totalTeamAdditions = 0;
-  (teamMetrics['Other'] as any).totalTeamDeletions = 0;
-  (teamMetrics['Other'] as any).totalTeamChangedFiles = 0;
+  // The accumulators are now part of the initial 'Other' team setup using newMetricsTemplate.
+  // These manual additions are no longer needed.
+  // (teamMetrics['Other'] as any).totalTeamAdditions = 0;
+  // (teamMetrics['Other'] as any).totalTeamDeletions = 0;
+  // (teamMetrics['Other'] as any).totalTeamChangedFiles = 0;
 
 
   // Track users grouped into 'Other'
@@ -134,6 +139,9 @@ export function groupMetricsByTeam(
     (targetTeam as any).totalTeamCycleTimeProductSum += metrics.avgCycleTime * metrics.mergedPRs;
   });
 
+  // Update totalMembers for 'Other' team based on actual users grouped
+  teamMetrics['Other'].totalMembers = otherUsers.length;
+
   // Calculate averages for new metrics, PRs per person, and avgCycleTime for each team
   let totalMergedPRs = 0;
   let grandTotalAdditions = 0;
@@ -142,22 +150,27 @@ export function groupMetricsByTeam(
   let grandTotalCycleTimeProductSum = 0;
 
   Object.entries(teamMetrics).forEach(([teamName, teamData]) => {
-    if (teamName !== 'Other') { // 'Other' team averages are kept at 0 for now
-      const teamMergedPRs = teamData.mergedPRs;
-      if (teamMergedPRs > 0) {
-        teamData.avgAdditionsPerPR = (teamData as any).totalTeamAdditions / teamMergedPRs;
-        teamData.avgDeletionsPerPR = (teamData as any).totalTeamDeletions / teamMergedPRs;
-        teamData.avgFilesChangedPerPR = (teamData as any).totalTeamChangedFiles / teamMergedPRs;
-        teamData.avgCycleTime = (teamData as any).totalTeamCycleTimeProductSum / teamMergedPRs;
-      } else {
-        teamData.avgAdditionsPerPR = 0;
-        teamData.avgDeletionsPerPR = 0;
-        teamData.avgFilesChangedPerPR = 0;
-        teamData.avgCycleTime = 0; // Set to 0 if no merged PRs
-      }
-      const teamSize = teamData.totalMembers || 1; // Use CSV based team size
-      teamData.prsPerPerson = teamMergedPRs / teamSize;
-      
+    // Calculate metrics for all teams, including 'Other'
+    const teamMergedPRs = teamData.mergedPRs;
+    if (teamMergedPRs > 0) {
+      teamData.avgAdditionsPerPR = (teamData as any).totalTeamAdditions / teamMergedPRs;
+      teamData.avgDeletionsPerPR = (teamData as any).totalTeamDeletions / teamMergedPRs;
+      teamData.avgFilesChangedPerPR = (teamData as any).totalTeamChangedFiles / teamMergedPRs;
+      teamData.avgCycleTime = (teamData as any).totalTeamCycleTimeProductSum / teamMergedPRs;
+    } else {
+      teamData.avgAdditionsPerPR = 0;
+      teamData.avgDeletionsPerPR = 0;
+      teamData.avgFilesChangedPerPR = 0;
+      teamData.avgCycleTime = 0; // Set to 0 if no merged PRs
+    }
+    
+    // For 'Other' team, totalMembers is already set. For other teams, it's from CSV.
+    // If totalMembers is 0 (e.g. 'Other' team with no users, or a CSV team with 0 members), avoid division by zero.
+    const teamSize = teamData.totalMembers > 0 ? teamData.totalMembers : 1;
+    teamData.prsPerPerson = teamMergedPRs / teamSize;
+    
+    // Accumulate grand totals for the "Total" row, excluding 'Other' and 'Total' itself
+    if (teamName !== 'Other' && teamName !== 'Total') {
       totalMergedPRs += teamMergedPRs;
       grandTotalAdditions += (teamData as any).totalTeamAdditions;
       grandTotalDeletions += (teamData as any).totalTeamDeletions;
@@ -166,12 +179,12 @@ export function groupMetricsByTeam(
     }
   });
   
-  // Set averages for 'Other' team to 0
-  teamMetrics['Other'].avgAdditionsPerPR = 0;
-  teamMetrics['Other'].avgDeletionsPerPR = 0;
-  teamMetrics['Other'].avgFilesChangedPerPR = 0;
-  teamMetrics['Other'].prsPerPerson = 0;
-  teamMetrics['Other'].totalMembers = 0; // 'Other' team size is not tracked from CSV
+  // The explicit reset for 'Other' team metrics is no longer needed as they are now calculated.
+  // teamMetrics['Other'].avgAdditionsPerPR = 0;
+  // teamMetrics['Other'].avgDeletionsPerPR = 0;
+  // teamMetrics['Other'].avgFilesChangedPerPR = 0;
+  // teamMetrics['Other'].prsPerPerson = 0;
+  // teamMetrics['Other'].totalMembers = 0; 
 
   // Sum all other metrics for the "Total" row
   let totalReviewedPRs = 0;
