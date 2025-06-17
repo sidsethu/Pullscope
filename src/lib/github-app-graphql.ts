@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { retry } from './retry';
 
 // Helper to get a fresh installation token from your API route
 let tokenCache: { token: string; expiresAt: string } | null = null;
@@ -51,34 +52,39 @@ export async function githubAppGraphql<T = any>(query: string, variables: Record
   console.error('[GraphQL] Making API call with token');
 
   const makeRequest = async (tkn: string) => {
-    const res = await fetch('https://api.github.com/graphql', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${tkn}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'nammayatri-dashboard-app',
-      },
-      body: JSON.stringify({ query, variables }),
-    });
+    return retry(async () => {
+      const res = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tkn}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'nammayatri-dashboard-app',
+        },
+        body: JSON.stringify({ query, variables }),
+      });
 
-    if (!res.ok) {
-      const error = await res.text();
-      const status = res.status;
-      console.error('[GraphQL] Request failed:', { status, error });
-      // If we get a 4xx error, it might be due to an expired token
-      if (status >= 400 && status < 500) {
-        console.error('[GraphQL] Got 4xx error, forcing token refresh');
-        throw new Error(`FORCE_REFRESH:${error}`);
+      if (!res.ok) {
+        const error = await res.text();
+        const status = res.status;
+        console.error('[GraphQL] Request failed:', { status, error });
+        if (status >= 500) {
+          throw new Error(`GitHub API error with status ${status}: ${error}`);
+        }
+        // If we get a 4xx error, it might be due to an expired token
+        if (status >= 400 && status < 500) {
+          console.error('[GraphQL] Got 4xx error, forcing token refresh');
+          throw new Error(`FORCE_REFRESH:${error}`);
+        }
+        throw new Error(`GitHub GraphQL error: ${error}`);
       }
-      throw new Error(`GitHub GraphQL error: ${error}`);
-    }
 
-    const data = await res.json();
-    if (data.errors) {
-      console.error('[GraphQL] GraphQL errors:', data.errors);
-      throw new Error(JSON.stringify(data.errors));
-    }
-    return data.data as T;
+      const data = await res.json();
+      if (data.errors) {
+        console.error('[GraphQL] GraphQL errors:', data.errors);
+        throw new Error(JSON.stringify(data.errors));
+      }
+      return data.data as T;
+    });
   };
 
   try {
@@ -151,4 +157,4 @@ export async function getNammayatriRepos() {
   }
 
   return repos;
-} 
+}
