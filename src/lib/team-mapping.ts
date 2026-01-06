@@ -1,24 +1,35 @@
 import { TeamMember, TeamMetrics, GitHubMetrics } from '@/types';
 import { parse } from 'csv-parse/sync';
-import fs from 'fs';
-import path from 'path';
+
+// Google Sheet configuration
+const GOOGLE_SHEET_ID = process.env.GOOGLE_SHEET_ID || '1XaZhs70cP3gKC6rmOYXJRPmFAnEspPA4cHICtxR6Jpk';
+const GOOGLE_SHEET_TAB = 'team-mapping';
+const GOOGLE_SHEET_URL = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${GOOGLE_SHEET_TAB}`;
 
 export async function loadTeamMappings(): Promise<TeamMember[]> {
   try {
-    const csvPath = path.join(process.cwd(), 'public', 'data', 'team-mapping.csv');
-    const fileContent = fs.readFileSync(csvPath, 'utf-8');
-    
+    console.log('[TeamMapping] Fetching from Google Sheet...');
+    const response = await fetch(GOOGLE_SHEET_URL);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch Google Sheet: ${response.status} ${response.statusText}`);
+    }
+    const fileContent = await response.text();
+
     const records = parse(fileContent, {
       columns: true,
       skip_empty_lines: true,
     });
 
-    return records.map((record: any) => ({
+    const result = records.map((record: any) => ({
+      name: record.name || '',
       githubUsername: record.github_username || '',
       teamName: record.team_name || '',
     }));
+
+    console.log(`[TeamMapping] Loaded ${result.length} team members from Google Sheet`);
+    return result;
   } catch (error) {
-    console.error('Error loading team mapping:', error);
+    console.error('Error loading team mapping from Google Sheet:', error);
     throw new Error('Failed to load team mapping');
   }
 }
@@ -117,7 +128,7 @@ export function groupMetricsByTeam(
     if (EXCLUDED_USERS.has(username)) return;
     // Find team mapping for this user
     const teamMember = teamMembers.find(member => member.githubUsername === username);
-    
+
     // If user is not in mapping or has no team name, add to 'Other'
     const teamName = teamMember?.teamName || 'Other';
     const targetTeam = teamMetrics[teamName] || teamMetrics['Other'];
@@ -163,12 +174,12 @@ export function groupMetricsByTeam(
       teamData.avgFilesChangedPerPR = 0;
       teamData.avgCycleTime = 0; // Set to 0 if no merged PRs
     }
-    
+
     // For 'Other' team, totalMembers is already set. For other teams, it's from CSV.
     // If totalMembers is 0 (e.g. 'Other' team with no users, or a CSV team with 0 members), avoid division by zero.
     const teamSize = teamData.totalMembers > 0 ? teamData.totalMembers : 1;
     teamData.prsPerPerson = teamMergedPRs / teamSize;
-    
+
     // Accumulate grand totals for the "Total" row, excluding 'Other' and 'Total' itself
     if (teamName !== 'Other' && teamName !== 'Total') {
       totalMergedPRs += teamMergedPRs;
@@ -178,7 +189,7 @@ export function groupMetricsByTeam(
       grandTotalCycleTimeProductSum += (teamData as any).totalTeamCycleTimeProductSum;
     }
   });
-  
+
   // The explicit reset for 'Other' team metrics is no longer needed as they are now calculated.
   // teamMetrics['Other'].avgAdditionsPerPR = 0;
   // teamMetrics['Other'].avgDeletionsPerPR = 0;
@@ -212,7 +223,7 @@ export function groupMetricsByTeam(
     avgDeletionsPerPR: totalMergedPRs > 0 ? grandTotalDeletions / totalMergedPRs : 0,
     avgFilesChangedPerPR: totalMergedPRs > 0 ? grandTotalChangedFiles / totalMergedPRs : 0,
   };
-  
+
   // Clean up temporary accumulators from team data before returning
   Object.values(teamMetrics).forEach(teamData => {
     delete (teamData as any).totalTeamAdditions;

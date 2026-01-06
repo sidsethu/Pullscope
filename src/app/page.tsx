@@ -10,19 +10,18 @@ import { VStack, Alert, AlertIcon, AlertTitle, AlertDescription, Box, Button, HS
 import CommitsByRepoBarGraph from '@/components/CommitsByRepoBarGraph';
 import DashboardIntroLoader from '@/components/DashboardIntroLoader';
 
-// Helper to load team mapping CSV and return a list of { name, githubUsername }
+// Helper to load team mapping from API and return a list of { name, githubUsername }
 async function loadTeamMappingList() {
-  const res = await fetch('/data/team-mapping.csv');
-  const text = await res.text();
-  const lines = text.split('\n').slice(1); // skip header
-  const list: { name: string; githubUsername: string }[] = [];
-  for (const line of lines) {
-    const cols = line.split(',');
-    if (cols.length >= 4 && cols[0] && cols[3]) {
-      list.push({ name: cols[0].trim(), githubUsername: cols[3].trim() });
-    }
+  const res = await fetch('/api/team-mapping');
+  if (!res.ok) {
+    console.error('Failed to fetch team mapping');
+    return [];
   }
-  return list;
+  const data = await res.json();
+  return data.map((m: { name: string; githubUsername: string }) => ({
+    name: m.name,
+    githubUsername: m.githubUsername,
+  }));
 }
 
 export default function Home() {
@@ -57,40 +56,40 @@ export default function Home() {
 
   const metricsToShow = useMemo(() => {
     if (!groupByName) return teamMetrics;
-    
+
     // Build user-level metrics using mappingList and userMetrics
     return mappingList
       .map((entry) => {
         const metrics = userMetrics[entry.githubUsername];
         return metrics
-          ? { 
-              teamName: entry.name,
-              mergedPRs: metrics.mergedPRs,
-              avgCycleTime: metrics.avgCycleTime,
-              reviewedPRs: metrics.reviewedPRs,
-              openPRs: metrics.openPRs,
-              commits: metrics.commits,
-              prsPerPerson: 0, // This is calculated per team, so 0 for individual user row
-              totalMembers: 0, // This is a team concept, so 0 for individual user row
-              // Add new average metrics from userMetrics
-              avgAdditionsPerPR: metrics.avgAdditionsPerPR,
-              avgDeletionsPerPR: metrics.avgDeletionsPerPR,
-              avgFilesChangedPerPR: metrics.avgFilesChangedPerPR,
-            }
-          : { 
-              teamName: entry.name,
-              mergedPRs: 0,
-              avgCycleTime: 0,
-              reviewedPRs: 0,
-              openPRs: 0,
-              commits: 0,
-              prsPerPerson: 0,
-              totalMembers: 0,
-              // Initialize new average metrics for users not found
-              avgAdditionsPerPR: 0,
-              avgDeletionsPerPR: 0,
-              avgFilesChangedPerPR: 0,
-            };
+          ? {
+            teamName: entry.name,
+            mergedPRs: metrics.mergedPRs,
+            avgCycleTime: metrics.avgCycleTime,
+            reviewedPRs: metrics.reviewedPRs,
+            openPRs: metrics.openPRs,
+            commits: metrics.commits,
+            prsPerPerson: 0, // This is calculated per team, so 0 for individual user row
+            totalMembers: 0, // This is a team concept, so 0 for individual user row
+            // Add new average metrics from userMetrics
+            avgAdditionsPerPR: metrics.avgAdditionsPerPR,
+            avgDeletionsPerPR: metrics.avgDeletionsPerPR,
+            avgFilesChangedPerPR: metrics.avgFilesChangedPerPR,
+          }
+          : {
+            teamName: entry.name,
+            mergedPRs: 0,
+            avgCycleTime: 0,
+            reviewedPRs: 0,
+            openPRs: 0,
+            commits: 0,
+            prsPerPerson: 0,
+            totalMembers: 0,
+            // Initialize new average metrics for users not found
+            avgAdditionsPerPR: 0,
+            avgDeletionsPerPR: 0,
+            avgFilesChangedPerPR: 0,
+          };
       })
       .filter((m) => m.teamName && m.teamName !== 'Other');
   }, [teamMetrics, userMetrics, groupByName, mappingList]);

@@ -1,25 +1,20 @@
 import { NextResponse } from 'next/server';
-import { parse } from 'csv-parse/sync';
-import { TeamMember } from '@/types';
-import fs from 'fs';
-import path from 'path';
+import { loadTeamMappings } from '@/lib/team-mapping';
 
 export async function GET() {
   try {
-    const csvPath = path.join(process.cwd(), 'public', 'data', 'team-mapping.csv');
-    const fileContent = fs.readFileSync(csvPath, 'utf-8');
-    
-    const records = parse(fileContent, {
-      columns: true,
-      skip_empty_lines: true,
-    });
+    const teamMembers = await loadTeamMappings();
 
-    const teamMembers: TeamMember[] = records.map((record: any) => ({
-      githubUsername: record.github_username,
-      teamName: record.team_name,
-    }));
+    // Transform to include the 'name' field for client-side "Group by Name" feature
+    const result = teamMembers
+      .filter(m => m.githubUsername) // Only include members with GitHub usernames
+      .map(m => ({
+        name: m.name,
+        githubUsername: m.githubUsername,
+        teamName: m.teamName,
+      }));
 
-    return NextResponse.json(teamMembers);
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error loading team mapping:', error);
     return NextResponse.json(
@@ -27,4 +22,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-} 
+}
